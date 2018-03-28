@@ -1,0 +1,24 @@
+{
+  "name": "slackbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "quickstart.js",
+  "scripts": {
+    "start": "node quickstart",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frankhyin/slackBot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/frankhyin/slackBot/issues"
+  },
+  "homepage": "https://github.com/frankhyin/slackBot#readme",
+  "dependencies": {
+    "@slack/client": "^4.1.0",
+    "googleapis": "^27.0.0"
+  }
+}

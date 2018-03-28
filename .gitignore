@@ -56,6 +56,11 @@ typings/
 
 # dotenv environment variables file
 .env
+<<<<<<< HEAD
 
 
 env.sh
+=======
+env.sh
+client_secret.json
+>>>>>>> 87ced6dc73d67780f83b5490f0864f70bfc8d58a
