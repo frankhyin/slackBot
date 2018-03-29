@@ -19,6 +19,9 @@
   "homepage": "https://github.com/frankhyin/slackBot#readme",
   "dependencies": {
     "@slack/client": "^4.1.0",
-    "googleapis": "^27.0.0"
+    "dialogflow": "^0.1.0",
+    "express": "^4.16.3",
+    "googleapis": "^27.0.0",
+    "mongoose": "^5.0.12"
   }
 }
