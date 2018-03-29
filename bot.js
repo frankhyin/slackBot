@@ -1,7 +1,8 @@
 // SLACK RTM
-const { RTMClient } = require('@slack/client');
+const { RTMClient, WebClient } = require('@slack/client');
 const token = process.env.SLACK_TOKEN;
 const rtm = new RTMClient(token);
+const web = new WebClient(token);
 
 // MONGO DB
 const models = require('./models/models');
@@ -14,8 +15,15 @@ const projectId = "slackbot-e9b9d";
 const languageCode = 'en-US';
 
 // Google Calendar API
-var {google} = require('googleapis');
+// const calendar = require('calendar/calendar')
+const googleapis = require('googleapis');
+const google = googleapis.google;
+// const {google} = require('googleapis');
 const OAuth2 = google.auth.OAuth2;
+const cal = google.calendar('v3');
+// const cal = googleapis.discover('calendar', 'v3').execute((err, client) => {
+//   console.log("cal", err, client)
+// });
 
 const oauth2Client = new OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -24,9 +32,6 @@ const oauth2Client = new OAuth2(
 );
 
 const scopes = ['https://www.googleapis.com/auth/calendar'];
-
-
-
 
 rtm.start();
 
@@ -44,9 +49,10 @@ rtm.on('message', (message) => {
         console.log('Message sent: ', res.ts);
     })
     .catch(console.error);
+    return;
   }
 
-  User.find({slackID: message.user})
+  User.findOne({slackID: message.user}).exec()
   .then(user => {
     console.log(user);
     if (!user){
@@ -58,60 +64,175 @@ rtm.on('message', (message) => {
         state: message.user
       });
       
-      // send oauth url to user
-      rtm.sendMessage(url, message.channel) // message.channel is less secure cause other people can see it
+      const data = {
+        text: `<@${message.user}> please authenticate yourself by clicking on the link below:`,
+        attachments: [{
+          fallback: `oauth: ${url}`,
+          actions: [{
+            type: "button",
+            text: "Authenticate Using Google",
+            url: url}]
+          }]
+        }
+
+      // open a new conversation with the user so that the link is shared privately:
+      web.conversations.open({users: message.user})
+      .then((res) => {
+          console.log('opened', res);
+          data.channel = res.channel.id;
+          return web.chat.postMessage(data)      
+      })
       .then((res) => {
           console.log('Message sent: ', res.ts);
       })
       .catch(console.error);
+
     }
     else {
-      const sessionId = message.user;
-      const sessionPath = sessionClient.sessionPath(projectId, sessionId);
-      const query = message.text;
-    
-      const request = {
-        session: sessionPath,
-        queryInput: {
-          text: {
-            text: query,
-            languageCode: languageCode,
-          },
-        },
-      };   
-      sessionClient
-      .detectIntent(request)
-      .then(responses => {
-        console.log('Detected intent');
-        const result = responses[0].queryResult;
-        console.log(`  Query: ${result.queryText}`);
-        console.log(`  Response: ${result.fulfillmentText}`);
-        if (result.intent) {
-          console.log(`  Intent: ${result.intent.displayName}`);
-        } else {
-          console.log(`  No intent matched.`);
-        }
-    
-        return rtm.sendMessage(result.fulfillmentText, message.channel);
-      })
-      .then((res) => {
-        console.log('Message sent: ', res.ts);
-      })
-      .catch(err => {
-        console.error('ERROR:', err);
-      });
+      dialogSession(message);
     }
   })
   .catch(console.error)
   return;
 
-
- 
-
-
-
   console.log(`(channel:${message.channel}) ${message.user} says: ${message.text}`);
 });
+
+
+function dialogSession(message){
+  // DialogFlow AI stuff
+      
+  const sessionId = message.user;
+  const sessionPath = sessionClient.sessionPath(projectId, sessionId);
+  const query = message.text;
+
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: query,
+        languageCode: languageCode,
+      },
+    },
+  };   
+  sessionClient
+  .detectIntent(request)
+  .then(responses => {
+    console.log('Detected intent');
+    const result = responses[0].queryResult;
+    console.log(`  Query: ${result.queryText}`);
+    console.log(`  Response: ${result.fulfillmentText}`);
+    if (result.intent) {
+      console.log(`  Intent: ${result.intent.displayName}`);
+    } else {
+      console.log(`  No intent matched.`);
+    }
+
+    // when ready to schedule, cal calendar function
+    if (result.fulfillmentText === "Reminder set!"){
+      const fields = result.parameters.fields;
+      const date = fields.date.stringValue;
+      const time = (new Date(fields.time.stringValue)).getHours();
+      const data = {
+        event: fields.event.stringValue,
+        start: (new Date(date)),
+        end: (new Date(date))
+      };
+      data.start.setHours(time);
+      data.end.setHours(time+1);
+      console.log('data', data)
+
+      makeCalendarEvent(message, data);
+    }
+
+
+    return rtm.sendMessage(result.fulfillmentText, message.channel);
+  })
+  .then((res) => {
+    console.log('Message sent: ', res.ts);
+  })
+  .catch(err => {
+    console.error('ERROR:', err);
+  });
+}
+
+
+function makeCalendarEvent(message, data){
+  User.findOne({slackID: message.user}).exec()
+  .then(user => {
+
+    const newEvent = {
+      summary: data.event,
+      start: {
+        dateTime: data.start
+      },
+      end: {
+        dateTime: data.end
+      }
+    }
+    console.log('newEvent',newEvent);
+
+    oauth2Client.setCredentials(user.tokens);
+
+    cal.events.insert({
+      auth: oauth2Client,
+      calendarId: 'primary',
+      resource: newEvent,
+    }, function(err, event) {
+      if (err) {
+        console.log('There was an error contacting the Calendar service: ' + err)
+        return;
+      }
+      console.log('Event created: %s', event.data.htmlLink)
+    });
+
+
+
+  })
+  .catch(console.error)
+}
+
+
+
+function createEvent(auth, options) {
+  var calendar = google.calendar('v3');
+  var start = options[1]
+  start.setHours(options[2])
+  start.setMinutes(0)
+  start.setSeconds(0)
+  console.log(start)
+  var startDate = start.toISOString()
+  var end = options[1]
+  end.setHours(options[3])
+  end.setMinutes(0)
+  end.setSeconds(0)
+  console.log(end)
+  var endDate = end.toISOString()
+  var newEvent = {
+    summary: options[0],
+    start: {
+      dateTime: startDate
+    },
+    end: {
+      dateTime: endDate
+    }
+  }
+  calendar.events.insert({
+    auth: auth,
+    calendarId: 'primary',
+    resource: newEvent,
+  }, function(err, event) {
+    if (err) {
+      console.log('There was an error contacting the Calendar service: ' + err)
+      return;
+    }
+    console.log('Event created: %s', event.data.htmlLink)
+  })
+}
+
+
+
+
 
 
 const express = require('express');
@@ -125,9 +246,7 @@ app.get('/redirect', (req, res)=>{
       console.log('tokens', tokens);
       User.findOrCreate({slackID: req.query.state}, {
           slackID: req.query.state,
-          access_token : tokens.access_token,
-          token_type: tokens.token_type,
-          expiry_date: tokens.expiry_date
+          tokens: tokens
         }, (err, user)=>{
         console.log(err, user);
       })
@@ -136,4 +255,4 @@ app.get('/redirect', (req, res)=>{
   res.send("Authentication Successful!");
 });
 
-app.listen(8080, () => console.log('Listening on port 8080!'))
+app.listen(8080, () => console.log('Listening on port 8080!'));

@@ -9,18 +9,10 @@ var userSchema = Schema({
         type: String,
         required: true
     },
-    access_token: {
-        type: String,
+    tokens: {
+        type: Object,
         required: true
     },
-    token_type: {
-        type: String,
-        required: true
-    },
-    expiry_date: {
-        type: String,
-        required: true
-    }
 });
 
 var User = mongoose.model('User', userSchema);
