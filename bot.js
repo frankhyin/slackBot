@@ -139,15 +139,16 @@ function dialogSession(message){
       // const date = fields.date.stringValue;
       // const time = (new Date(fields.time.stringValue)).getHours();
 
-      const datetime = fields.datetime.stringValue;
+      console.log(fields);
+
+      const datetime = fields['date-time'].stringValue;
 
       const data = {
         event: fields.event.stringValue,
-        start: (new Date(date)),
-        end: (new Date(date))
+        start: (new Date(datetime)),
+        end: (new Date(datetime))
       };
-      data.start.setHours(time);
-      data.end.setHours(time+1);
+      data.end.setHours(data.start.getHours()+1);
       console.log('data', data)
 
       makeCalendarEvent(message, data);
