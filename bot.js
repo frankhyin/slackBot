@@ -88,6 +88,9 @@ rtm.on('message', (message) => {
       .catch(console.error);
 
     }
+    else if (message.text === "!mySchedule"){
+      getCalendarEvents(message);
+    }
     else {
       dialogSession(message);
     }
@@ -131,8 +134,13 @@ function dialogSession(message){
     // when ready to schedule, cal calendar function
     if (result.fulfillmentText === "Reminder set!"){
       const fields = result.parameters.fields;
-      const date = fields.date.stringValue;
-      const time = (new Date(fields.time.stringValue)).getHours();
+
+      // obsolete date and time fields
+      // const date = fields.date.stringValue;
+      // const time = (new Date(fields.time.stringValue)).getHours();
+
+      const datetime = fields.datetime.stringValue;
+
       const data = {
         event: fields.event.stringValue,
         start: (new Date(date)),
@@ -185,55 +193,41 @@ function makeCalendarEvent(message, data){
       }
       console.log('Event created: %s', event.data.htmlLink)
     });
-
-
-
   })
   .catch(console.error)
 }
 
+function getCalendarEvents(message){
+  User.findOne({slackID: message.user}).exec()
+  .then(user => {
+
+    oauth2Client.setCredentials(user.tokens);
 
 
-function createEvent(auth, options) {
-  var calendar = google.calendar('v3');
-  var start = options[1]
-  start.setHours(options[2])
-  start.setMinutes(0)
-  start.setSeconds(0)
-  console.log(start)
-  var startDate = start.toISOString()
-  var end = options[1]
-  end.setHours(options[3])
-  end.setMinutes(0)
-  end.setSeconds(0)
-  console.log(end)
-  var endDate = end.toISOString()
-  var newEvent = {
-    summary: options[0],
-    start: {
-      dateTime: startDate
-    },
-    end: {
-      dateTime: endDate
-    }
-  }
-  calendar.events.insert({
-    auth: auth,
-    calendarId: 'primary',
-    resource: newEvent,
-  }, function(err, event) {
-    if (err) {
-      console.log('There was an error contacting the Calendar service: ' + err)
-      return;
-    }
-    console.log('Event created: %s', event.data.htmlLink)
+    const dateMin = new Date();
+    const dateMax = new Date();
+    dateMax.setHours(23, 59, 59, 999);
+
+    console.log(dateMin, dateMax);
+
+
+    cal.events.list({
+      auth: oauth2Client,
+      calendarId: 'primary',
+      timeMin: dateMin,
+      timeMax: dateMax,
+      singleEvents: true,
+      orderBy: 'startTime'
+    }, function(err, response) {
+      if (err) {
+        console.log('There was an error contacting the Calendar service: ' + err)
+        return;
+      }
+      console.log(response.items)
+    });
   })
+  .catch(console.error)
 }
-
-
-
-
-
 
 const express = require('express');
 const app = express();
