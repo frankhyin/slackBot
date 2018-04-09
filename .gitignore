@@ -56,7 +56,15 @@ typings/
 
 # dotenv environment variables file
 .env
+<<<<<<< HEAD
 
 
 env.sh
+<<<<<<< HEAD
+=======
+env.sh
+client_secret.json
+>>>>>>> 87ced6dc73d67780f83b5490f0864f70bfc8d58a
+=======
 slackBotKey.json
+>>>>>>> 90a97ff59d5c91092b85d32bca600f78c2eee3e7
